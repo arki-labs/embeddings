@@ -1,0 +1,1 @@
+{"version":3,"file":"fields.d.ts","sourceRoot":"","sources":["../../src/transformers/fields.ts"],"names":[],"mappings":"AAAA;;;;GAIG;AACH,OAAO,KAAK,EAAwB,gBAAgB,EAAE,MAAM,2BAA2B,CAAC;AACxF,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAIxB,eAAO,MAAM,WAAW,6OAAkG,CAAC;AAC3H,eAAO,MAAM,YAAY,qQAAqG,CAAC;AAE/H,eAAO,MAAM,sBAAsB,EAAE,CAAC,CAAC,SAAS,CAAC,gBAAgB,EAAE,gBAAgB,CAAsC,CAAC"}

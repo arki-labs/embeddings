@@ -1,0 +1,1088 @@
+{
+  "package": "@arki/embeddings",
+  "version": "0.1.0",
+  "entries": [
+    {
+      "subpath": ".",
+      "name": "CacheStore",
+      "kind": "type",
+      "signature": "export type CacheStore = { get(key: string): Promise<Uint8Array | undefined>; set(key: string, value: Uint8Array, ttlMs?: number): Promise<void>; };",
+      "jsdocSummary": "Byte store behind `withCache`: `memoryCacheStore()` in process, `kvCacheStore(kv)` from `@arki/embeddings/kv` through Redis."
+    },
+    {
+      "subpath": ".",
+      "name": "calibrateInt8",
+      "kind": "function",
+      "signature": "export declare function calibrateInt8(sample: readonly Float32Array[]): Int8Calibration;",
+      "jsdocSummary": "The per-dimension range of a sample of float vectors, for `quantize(v, 'int8', calibration)`. Calibrate once on a sample of the corpus and keep the result with the index: every vector of that index must be quantized with the same calibration."
+    },
+    {
+      "subpath": ".",
+      "name": "Cancelled",
+      "kind": "variable",
+      "signature": "export declare const Cancelled: import(\"@arki/failure\").FailureDefinition<\"embeddings.cancelled\", undefined>; ; export type Cancelled = ReturnType<typeof Cancelled>;",
+      "jsdocSummary": "The embedding call was cancelled."
+    },
+    {
+      "subpath": ".",
+      "name": "ConfigurationFailure",
+      "kind": "variable",
+      "signature": "export declare const ConfigurationFailure: import(\"@arki/failure\").FailureDefinition<\"embeddings.configuration\", import(\"@standard-schema/spec\").StandardSchemaV1<{ message: string; }, { message: string; }>>; ; export type ConfigurationFailure = ReturnType<typeof ConfigurationFailure>;",
+      "jsdocSummary": "The embedding provider, model or connection is misconfigured."
+    },
+    {
+      "subpath": ".",
+      "name": "cosine",
+      "kind": "function",
+      "signature": "export declare function cosine(a: Float32Array, b: Float32Array): number;",
+      "jsdocSummary": "Cosine similarity, for tests and rescoring, not search. Two zero vectors answer 0. Vectors of different lengths come from different spaces and score nothing, so that is a caller bug and throws."
+    },
+    {
+      "subpath": ".",
+      "name": "countTokens",
+      "kind": "function",
+      "signature": "export declare function countTokens(model: EmbeddingModel, input: EmbedInput): TokenCount;",
+      "jsdocSummary": "Tokens one input costs. `counted` when the model record carries a tokenizer (`model.countTokens`, as `./transformers` records do), otherwise `estimated` as `ceil(characters / 4)`; a provider's own count replaces an estimate in `usage` when it reports one."
+    },
+    {
+      "subpath": ".",
+      "name": "createEmbedder",
+      "kind": "function",
+      "signature": "export declare function createEmbedder(model: EmbeddingModel, input?: EmbedderOptions): Embedder | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }> | import(\"@arki/failure\").Failure<\"embeddings.unsupported_input\", { index: number; part: \"batch\" | \"dimensions\" | \"image\" | \"quantization\" | \"text\"; }>;",
+      "jsdocSummary": "A model with fixed output options. Refuses sizes outside `model.matryoshka` and dtypes the provider cannot produce with `UnsupportedInput`, never a throw."
+    },
+    {
+      "subpath": ".",
+      "name": "E5_INSTRUCTION",
+      "kind": "variable",
+      "signature": "export declare const E5_INSTRUCTION: Instruction;",
+      "jsdocSummary": "The E5 family (`intfloat/e5-*`, `multilingual-e5-*`): `query: ` on queries, `passage: ` on documents."
+    },
+    {
+      "subpath": ".",
+      "name": "embed",
+      "kind": "function",
+      "signature": "export declare function embed(embedder: Embedder, input: EmbedInput, options?: EmbedOptions): Promise<Embedding | EmbedFailure>;",
+      "jsdocSummary": "Embeds one input. Same validation and failures as `embedMany`."
+    },
+    {
+      "subpath": ".",
+      "name": "Embedder",
+      "kind": "type",
+      "signature": "export type Embedder = { readonly model: EmbeddingModel; /** At the embedder's default dimensions and quantization; carries the revision once the model knows it. */ readonly space: EmbeddingSpace; /** The space a call with these options answers in, e.g. for a cache key before the call. */ spaceFor(options: Pick<EmbedOptions, 'dimensions' | 'quantization'>): EmbeddingSpace; embed(inputs: readonly EmbedInput[], options: EmbedOptions): Promise<EmbeddingBatch | EmbedFailure>; };",
+      "jsdocSummary": "A model with its output options fixed. `embed` is one native attempt of at most `model.maxBatch` inputs."
+    },
+    {
+      "subpath": ".",
+      "name": "EmbedderOptions",
+      "kind": "type",
+      "signature": "export type EmbedderOptions = { readonly dimensions?: number; /** * Asked of the provider when it makes this dtype natively, else made here from validated floats: * `'binary'` always (size a multiple of 8), `'int8'` only with a `calibration`. */ readonly quantization?: 'int8' | 'binary'; /** The corpus's shared int8 range (`calibrateInt8`). With it, int8 is always made here and the space names it. */ readonly calibration?: Int8Calibration; readonly log?: EmbeddingsLogger; };",
+      "jsdocSummary": "Output options an embedder is created with."
+    },
+    {
+      "subpath": ".",
+      "name": "embedderOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const embedderOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ dimensions?: number | undefined; quantization?: \"binary\" | \"int8\" | undefined; calibration?: Readonly<{ min: Float32Array<ArrayBufferLike>; max: Float32Array<ArrayBufferLike>; }> | undefined; log?: import(\"@arki/log\").Logger | undefined; }>, Readonly<{ dimensions?: number | undefined; quantization?: \"binary\" | \"int8\" | undefined; calibration?: Readonly<{ min: Float32Array<ArrayBufferLike>; max: Float32Array<ArrayBufferLike>; }> | undefined; log?: import(\"@arki/log\").Logger | undefined; }>>;",
+      "jsdocSummary": "`EmbedderOptions`, checked by `createEmbedder`; a type test locks it to the type."
+    },
+    {
+      "subpath": ".",
+      "name": "Embedding",
+      "kind": "type",
+      "signature": "export type Embedding = { readonly vector: Float32Array | Int8Array | Uint8Array; readonly space: EmbeddingSpace; readonly usage: Usage; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": ".",
+      "name": "EmbeddingBatch",
+      "kind": "type",
+      "signature": "export type EmbeddingBatch = { readonly vectors: readonly Embedding['vector'][]; readonly space: EmbeddingSpace; readonly usage: Usage; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": ".",
+      "name": "EMBEDDINGGEMMA_2_INSTRUCTION",
+      "kind": "variable",
+      "signature": "export declare const EMBEDDINGGEMMA_2_INSTRUCTION: Instruction;",
+      "jsdocSummary": "EmbeddingGemma 2's task prompts (huggingface.co/google/embeddinggemma-2, read 2026-10-21). Today they equal EmbeddingGemma's; its own `version` lets one card change without re-embedding the other."
+    },
+    {
+      "subpath": ".",
+      "name": "EMBEDDINGGEMMA_INSTRUCTION",
+      "kind": "variable",
+      "signature": "export declare const EMBEDDINGGEMMA_INSTRUCTION: Instruction;",
+      "jsdocSummary": "EmbeddingGemma's task prompts, from its model card. A document's title is unknown here, so it is `none`, as the card says to write it."
+    },
+    {
+      "subpath": ".",
+      "name": "EmbeddingModel",
+      "kind": "type",
+      "signature": "export type EmbeddingModel = { readonly provider: EmbeddingProviderName; readonly id: string; /** Ollama digest, HF commit, provider snapshot. Ollama learns it on the first call. */ readonly revision?: string; /** Learns a lazy `revision` without embedding (Ollama). Absent when the revision is known up front or never. */ loadRevision?(signal?: AbortSignal): Promise<EmbedFailure | undefined>; readonly assurance: 'immutable' | 'operator-pinned' | 'mutable'; readonly local: boolean; /** Native output size. */ readonly dimensions: number; /** Allowed truncations; `[]` if none. */ readonly matryoshka: readonly number[]; readonly maxInputTokens: number; /** Inputs per request. */ readonly maxBatch: number; /** Tokens per request. */ readonly maxBatchTokens: number; readonly normalized: boolean; readonly instruction: Instruction; readonly inputs: readonly ('text' | 'image')[]; /** Provider-native output dtypes. */ readonly quantizations: readonly ('int8' | 'binary')[]; /** Exact tokens of one text, when the record carries a tokenizer. Without it, `countTokens` estimates. */ readonly countTokens?: (text: string) => number; /** One native request, at most `maxBatch` texts, no retry. Output is validated by `createEmbedder`, not here. */ readonly embedTexts: (request: NativeRequest) => Promise<NativeEmbeddings | EmbedFailure>; /** * Embeds a call that holds any image. Only models whose `inputs` include `'image'` have it; text-only * calls always go to `embedTexts`. */ readonly embedInputs?: (request: NativeInputsRequest) => Promise<NativeEmbeddings | EmbedFailure>; /** Frees an in-process session (Transformers.js). */ dispose?(): Promise<void>; };",
+      "jsdocSummary": "Facts about one model plus the one native call that reaches it. The provider client lives inside `embedTexts` (a closure), never in the type, so the root names no provider SDK."
+    },
+    {
+      "subpath": ".",
+      "name": "EmbeddingProviderName",
+      "kind": "type",
+      "signature": "export type EmbeddingProviderName = (typeof EMBEDDING_PROVIDERS)[number];",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": ".",
+      "name": "EmbeddingsLogger",
+      "kind": "type",
+      "signature": "export type EmbeddingsLogger = ReturnType<typeof getLogger>;",
+      "jsdocSummary": "The logger `createEmbedder` writes lifecycle records to. `@arki/log` exports no `Logger` name."
+    },
+    {
+      "subpath": ".",
+      "name": "EmbeddingSpace",
+      "kind": "type",
+      "signature": "export type EmbeddingSpace = { readonly provider: EmbeddingProviderName; readonly model: string; readonly revision?: string; readonly dimensions: number; readonly normalized: boolean; readonly quantization: Quantization; /** Fingerprint of the {@link Int8Calibration} for int8 made by this package; absent for provider-native int8. */ readonly calibration?: string; readonly instructionVersion: number; };",
+      "jsdocSummary": "Everything that must match for two vectors to be comparable. Stored next to every index (as {@link spaceId }); a different space means re-embed, never mix."
+    },
+    {
+      "subpath": ".",
+      "name": "EmbedFailure",
+      "kind": "type",
+      "signature": "export type EmbedFailure = ReturnType<(typeof EMBED_FAILURES)[number]>;",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": ".",
+      "name": "EmbedInput",
+      "kind": "type",
+      "signature": "export type EmbedInput = string | { readonly text?: string; readonly image?: Uint8Array; readonly mimeType?: string; };",
+      "jsdocSummary": "One input. A string is text; the object form carries an image for multimodal models."
+    },
+    {
+      "subpath": ".",
+      "name": "embedMany",
+      "kind": "function",
+      "signature": "export declare function embedMany(embedder: Embedder, inputs: readonly EmbedInput[], options?: EmbedManyOptions): Promise<EmbeddingBatch | EmbedFailure>;",
+      "jsdocSummary": "Embeds any number of inputs: packs them by `maxBatch` and `maxBatchTokens`, runs the chunks with bounded concurrency and reassembles vectors in input order. All or nothing: the first failure cancels the remaining chunks, waits for the ones in flight, and is returned with no vectors."
+    },
+    {
+      "subpath": ".",
+      "name": "EmbedManyOptions",
+      "kind": "type",
+      "signature": "export type EmbedManyOptions = EmbedOptions & { readonly concurrency?: number; readonly onProgress?: (done: number, total: number, usage: Usage) => void; };",
+      "jsdocSummary": "`embedMany` options: the per-call options plus how many chunks run at once and a progress callback."
+    },
+    {
+      "subpath": ".",
+      "name": "embedManyOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const embedManyOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ purpose?: \"classification\" | \"clustering\" | \"document\" | \"query\" | \"similarity\" | undefined; dimensions?: number | undefined; quantization?: \"binary\" | \"int8\" | undefined; onTooLong?: \"fail\" | \"truncate\" | undefined; signal?: AbortSignal | undefined; concurrency?: number | undefined; onProgress?: ((done: number, total: number, usage: Usage) => void) | undefined; }>, Readonly<{ purpose?: \"classification\" | \"clustering\" | \"document\" | \"query\" | \"similarity\" | undefined; dimensions?: number | undefined; quantization?: \"binary\" | \"int8\" | undefined; onTooLong?: \"fail\" | \"truncate\" | undefined; signal?: AbortSignal | undefined; concurrency?: number | undefined; onProgress?: ((done: number, total: number, usage: Usage) => void) | undefined; }>>;",
+      "jsdocSummary": "`EmbedManyOptions`, checked by `embedMany`; a type test locks it to the type."
+    },
+    {
+      "subpath": ".",
+      "name": "EmbedMiddleware",
+      "kind": "type",
+      "signature": "export type EmbedMiddleware = (next: Embedder['embed'], embedder: Embedder) => Embedder['embed'];",
+      "jsdocSummary": "Wraps an embedder's `embed`. `withMiddleware` composes them, the first outermost."
+    },
+    {
+      "subpath": ".",
+      "name": "EmbedOptions",
+      "kind": "type",
+      "signature": "export type EmbedOptions = { readonly purpose?: Purpose; readonly dimensions?: number; readonly quantization?: 'int8' | 'binary'; /** * An input longer than `model.maxInputTokens`: `'fail'` (default) returns `InputTooLong` before * any request; `'truncate'` lets the provider cut it (Ollama) or cuts it at `maxInputTokens * 4` * characters first (OpenAI, OpenAI-compatible). */ readonly onTooLong?: 'fail' | 'truncate'; readonly signal?: AbortSignal; };",
+      "jsdocSummary": "Per-call options. `dimensions` and `quantization` override the embedder's defaults for this call."
+    },
+    {
+      "subpath": ".",
+      "name": "embedOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const embedOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ purpose?: \"classification\" | \"clustering\" | \"document\" | \"query\" | \"similarity\" | undefined; dimensions?: number | undefined; quantization?: \"binary\" | \"int8\" | undefined; onTooLong?: \"fail\" | \"truncate\" | undefined; signal?: AbortSignal | undefined; }>, Readonly<{ purpose?: \"classification\" | \"clustering\" | \"document\" | \"query\" | \"similarity\" | undefined; dimensions?: number | undefined; quantization?: \"binary\" | \"int8\" | undefined; onTooLong?: \"fail\" | \"truncate\" | undefined; signal?: AbortSignal | undefined; }>>;",
+      "jsdocSummary": "`EmbedOptions`, checked by `embed`; a type test locks it to the type. Defined here, not in `schemas.ts`: the root entry exports it, and `schemas.ts` holds Zod types the public `.d.ts` must not reach."
+    },
+    {
+      "subpath": ".",
+      "name": "embedStream",
+      "kind": "function",
+      "signature": "export declare function embedStream<Item>(embedder: Embedder, source: Iterable<Item> | AsyncIterable<Item>, options: EmbedStreamOptions<Item>): ReadableStream<{ readonly item: Item; readonly result: Embedding | EmbedFailure; }>;",
+      "jsdocSummary": "Embeds a source of any length as a `ReadableStream` of `{ item, result }` in source order. Pull based: the source is read only while the reader is reading and fewer than `maxPending` items are in flight, so memory stays flat over a corpus. A failed request does not end the stream: each of its items gets the failure as its `result`. The first item of a request carries that request's `usage`; the others carry zero, so summing every item's usage gives the total. Cancelling the stream (or aborting `signal`) aborts the requests in flight and reads no more from the source. A throw from the source, `text` or a custom `embed` is a bug and errors the stream."
+    },
+    {
+      "subpath": ".",
+      "name": "EmbedStreamOptions",
+      "kind": "type",
+      "signature": "export type EmbedStreamOptions<Item> = EmbedOptions & { /** The input to embed for one item, e.g. `doc => doc.body`. */ readonly text: (item: Item) => EmbedInput; /** Requests in flight at once. Default 2. */ readonly concurrency?: number; /** Items read from the source and not yet delivered, at most. Default 64. */ readonly maxPending?: number; };",
+      "jsdocSummary": "`embedStream` options: the per-call options, the text of each item, and how far ahead it may run."
+    },
+    {
+      "subpath": ".",
+      "name": "embedStreamOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const embedStreamOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ purpose?: \"classification\" | \"clustering\" | \"document\" | \"query\" | \"similarity\" | undefined; dimensions?: number | undefined; quantization?: \"binary\" | \"int8\" | undefined; onTooLong?: \"fail\" | \"truncate\" | undefined; signal?: AbortSignal | undefined; text: (item: unknown) => EmbedInput; concurrency?: number | undefined; maxPending?: number | undefined; }>, Readonly<{ purpose?: \"classification\" | \"clustering\" | \"document\" | \"query\" | \"similarity\" | undefined; dimensions?: number | undefined; quantization?: \"binary\" | \"int8\" | undefined; onTooLong?: \"fail\" | \"truncate\" | undefined; signal?: AbortSignal | undefined; text: (item: unknown) => EmbedInput; concurrency?: number | undefined; maxPending?: number | undefined; }>>;",
+      "jsdocSummary": "`EmbedStreamOptions`, checked by `embedStream`; a type test locks it to the type at `Item = unknown` (a function field is checked as a function, so the item type is not part of the schema)."
+    },
+    {
+      "subpath": ".",
+      "name": "GEMINI_EMBEDDING_2_INSTRUCTION",
+      "kind": "variable",
+      "signature": "export declare const GEMINI_EMBEDDING_2_INSTRUCTION: Instruction;",
+      "jsdocSummary": "Gemini Embedding 2's prefixes (ai.google.dev/gemini-api/docs/embeddings, read 2026-10-21). Today they equal EmbeddingGemma's, but each model keeps its own `version`, so one model card changing a prefix re-embeds only that model's corpora."
+    },
+    {
+      "subpath": ".",
+      "name": "hamming",
+      "kind": "function",
+      "signature": "export declare function hamming(a: Uint8Array, b: Uint8Array): number;",
+      "jsdocSummary": "How many bits differ between two packed binary vectors: lower is closer. The cheap first pass before rescoring the best candidates with float vectors."
+    },
+    {
+      "subpath": ".",
+      "name": "InputTooLong",
+      "kind": "variable",
+      "signature": "export declare const InputTooLong: import(\"@arki/failure\").FailureDefinition<\"embeddings.input_too_long\", import(\"@standard-schema/spec\").StandardSchemaV1<{ index: number; tokens: TokenCount; max: number; }, { index: number; tokens: TokenCount; max: number; }>>; ; export type InputTooLong = ReturnType<typeof InputTooLong>;",
+      "jsdocSummary": "An input exceeds the embedding model token limit."
+    },
+    {
+      "subpath": ".",
+      "name": "Instruction",
+      "kind": "type",
+      "signature": "export type Instruction = Readonly<Partial<Record<Purpose, string>>> & { readonly version: number; };",
+      "jsdocSummary": "Prefix per purpose; `''` or absent = no prefix. `version` goes into the space id, so changing a prompt is a new space."
+    },
+    {
+      "subpath": ".",
+      "name": "Int8Calibration",
+      "kind": "type",
+      "signature": "export type Int8Calibration = { readonly min: Float32Array; readonly max: Float32Array; };",
+      "jsdocSummary": "The value range per dimension that client-side int8 maps onto -128…127. One calibration is shared by a whole corpus: vectors scaled with different ranges are not comparable."
+    },
+    {
+      "subpath": ".",
+      "name": "InvalidOutput",
+      "kind": "variable",
+      "signature": "export declare const InvalidOutput: import(\"@arki/failure\").FailureDefinition<\"embeddings.invalid_output\", import(\"@standard-schema/spec\").StandardSchemaV1<{ reason: string; }, { reason: string; }>>; ; export type InvalidOutput = ReturnType<typeof InvalidOutput>;",
+      "jsdocSummary": "The provider returned an unusable embedding."
+    },
+    {
+      "subpath": ".",
+      "name": "isEmbedFailure",
+      "kind": "function",
+      "signature": "export declare function isEmbedFailure(value: unknown): value is EmbedFailure;",
+      "jsdocSummary": "True for a failure this package defines; false for every other value, other failures included."
+    },
+    {
+      "subpath": ".",
+      "name": "isSameSpace",
+      "kind": "function",
+      "signature": "export declare function isSameSpace(a: EmbeddingSpace, b: EmbeddingSpace): boolean;",
+      "jsdocSummary": "True when vectors from `a` and `b` are comparable. `revision` counts only when both sides know it."
+    },
+    {
+      "subpath": ".",
+      "name": "l2Normalize",
+      "kind": "function",
+      "signature": "export declare function l2Normalize(vector: Float32Array): Float32Array;",
+      "jsdocSummary": "A unit-length copy. A zero vector is returned as a zero copy."
+    },
+    {
+      "subpath": ".",
+      "name": "memoryCacheStore",
+      "kind": "function",
+      "signature": "export declare function memoryCacheStore(options?: { readonly maxEntries?: number; }): CacheStore;",
+      "jsdocSummary": "An in-process LRU `CacheStore`. It copies on `set` and on `get`, so a caller that changes a returned vector never changes the cache. The oldest-read entry goes first once `maxEntries` (default 10 000) is reached; an entry set with `ttlMs` is gone after that many milliseconds."
+    },
+    {
+      "subpath": ".",
+      "name": "ModelUnavailable",
+      "kind": "variable",
+      "signature": "export declare const ModelUnavailable: import(\"@arki/failure\").FailureDefinition<\"embeddings.model_unavailable\", import(\"@standard-schema/spec\").StandardSchemaV1<{ model: string; reason: \"not-pulled\" | \"peer-missing\" | \"unknown-model\" | \"unreachable\"; }, { model: string; reason: \"not-pulled\" | \"peer-missing\" | \"unknown-model\" | \"unreachable\"; }>>; ; export type ModelUnavailable = ReturnType<typeof ModelUnavailable>;",
+      "jsdocSummary": "The embedding model or its provider is unavailable."
+    },
+    {
+      "subpath": ".",
+      "name": "NativeEmbeddings",
+      "kind": "type",
+      "signature": "export type NativeEmbeddings = { readonly vectors: readonly ArrayLike<unknown>[]; readonly tokens: TokenCount; readonly loadMs?: number; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": ".",
+      "name": "NativeInput",
+      "kind": "type",
+      "signature": "export type NativeInput = { readonly text: string; readonly image?: undefined; } | { readonly text?: string; readonly image: Uint8Array; readonly mimeType: string; };",
+      "jsdocSummary": "One input as `embedInputs` receives it, in input order: text (its prefix already applied), an image with its media type (`image/png`, …, read from the bytes when the caller gave none), or both."
+    },
+    {
+      "subpath": ".",
+      "name": "NativeInputsRequest",
+      "kind": "type",
+      "signature": "export type NativeInputsRequest = Omit<NativeRequest, 'texts'> & { readonly inputs: readonly NativeInput[]; };",
+      "jsdocSummary": "A call with at least one image: `NativeRequest` with typed parts in place of `texts`."
+    },
+    {
+      "subpath": ".",
+      "name": "NativeRequest",
+      "kind": "type",
+      "signature": "export type NativeRequest = { readonly texts: readonly string[]; /** * The call's purpose, for providers that take it as a field (Voyage `input_type`, Cohere * `input_type`, Google `taskType`). Its prefix, if the model has one, is already in `texts`. */ readonly purpose?: Purpose; /** Set only when it differs from the model's native size. */ readonly dimensions?: number; /** Set only for a provider-native dtype listed in `model.quantizations`. */ readonly quantization?: 'int8' | 'binary'; /** Set only for `onTooLong: 'truncate'`: cut each text to what the model accepts instead of refusing it. */ readonly truncate?: true; readonly signal?: AbortSignal; };",
+      "jsdocSummary": "What `createEmbedder` asks a model record for: prepared texts (instruction already applied) and output options."
+    },
+    {
+      "subpath": ".",
+      "name": "NO_INSTRUCTION",
+      "kind": "variable",
+      "signature": "export declare const NO_INSTRUCTION: Instruction;",
+      "jsdocSummary": "Symmetric models (OpenAI, the fake): text goes in as it is."
+    },
+    {
+      "subpath": ".",
+      "name": "NOMIC_INSTRUCTION",
+      "kind": "variable",
+      "signature": "export declare const NOMIC_INSTRUCTION: Instruction;",
+      "jsdocSummary": "nomic-embed-text's task prefixes. It has none for similarity, so that purpose goes in as it is."
+    },
+    {
+      "subpath": ".",
+      "name": "norm",
+      "kind": "function",
+      "signature": "export declare function norm(vector: Iterable<number>): number;",
+      "jsdocSummary": "Euclidean length."
+    },
+    {
+      "subpath": ".",
+      "name": "normalizeText",
+      "kind": "function",
+      "signature": "export declare function normalizeText(text: string, options?: NormalizeTextOptions): string;",
+      "jsdocSummary": "Puts text in one form before you embed or store it: Unicode NFC, every run of whitespace as one space, no space at either end, and, when asked, Romanian comma-below letters. The embedder never calls it: it sends your text exactly as given, so call this yourself, on documents and queries alike."
+    },
+    {
+      "subpath": ".",
+      "name": "NormalizeTextOptions",
+      "kind": "type",
+      "signature": "export type NormalizeTextOptions = { /** * Replace the legacy cedilla letters with Romanian's comma-below ones: ş→ș, ţ→ț, Ş→Ș, Ţ→Ț. Text * typed on old keyboards mixes both, and a model sees them as different characters. */ readonly romanianDiacritics?: boolean; };",
+      "jsdocSummary": "Options of {@link normalizeText}."
+    },
+    {
+      "subpath": ".",
+      "name": "normalizeTextOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const normalizeTextOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ romanianDiacritics?: boolean | undefined; }>, Readonly<{ romanianDiacritics?: boolean | undefined; }>>;",
+      "jsdocSummary": "`NormalizeTextOptions`, checked by `normalizeText`; a type test locks it to the type."
+    },
+    {
+      "subpath": ".",
+      "name": "Purpose",
+      "kind": "type",
+      "signature": "export type Purpose = (typeof PURPOSES)[number];",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": ".",
+      "name": "Quantization",
+      "kind": "type",
+      "signature": "export type Quantization = (typeof QUANTIZATIONS)[number];",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": ".",
+      "name": "quantize",
+      "kind": "function",
+      "signature": "export declare function quantize(vector: Float32Array, to: 'binary'): Uint8Array | UnsupportedInput; ; export declare function quantize(vector: Float32Array, to: 'int8', calibration: Int8Calibration): Int8Array | UnsupportedInput;",
+      "jsdocSummary": "A float vector as int8 or packed bits."
+    },
+    {
+      "subpath": ".",
+      "name": "QWEN3_INSTRUCTION",
+      "kind": "variable",
+      "signature": "export declare const QWEN3_INSTRUCTION: Instruction;",
+      "jsdocSummary": "Qwen3-Embedding was trained with this prefix on queries and none on documents."
+    },
+    {
+      "subpath": ".",
+      "name": "RateLimited",
+      "kind": "variable",
+      "signature": "export declare const RateLimited: import(\"@arki/failure\").FailureDefinition<\"embeddings.rate_limited\", import(\"@standard-schema/spec\").StandardSchemaV1<{ retryAfterMs?: number | undefined; }, { retryAfterMs?: number | undefined; }>>; ; export type RateLimited = ReturnType<typeof RateLimited>;",
+      "jsdocSummary": "The embedding provider is rate limiting this caller."
+    },
+    {
+      "subpath": ".",
+      "name": "resolveSpace",
+      "kind": "function",
+      "signature": "export declare function resolveSpace(embedder: Embedder, options?: { readonly signal?: AbortSignal; }): Promise<EmbeddingSpace | import(\"./failures.js\").EmbedFailure>;",
+      "jsdocSummary": "The embedder's space with its revision known, to compare with a stored space id before anything is embedded. Ollama reads its model digest (one metadata request, no embedding); other models answer at once. A digest it cannot read is `ModelUnavailable` (`unreachable` or `not-pulled`)."
+    },
+    {
+      "subpath": ".",
+      "name": "spaceId",
+      "kind": "function",
+      "signature": "export declare function spaceId(space: EmbeddingSpace): string;",
+      "jsdocSummary": "The space as one readable string, e.g. `'ollama/qwen3-embedding:0.6b@<digest>/1024/l2/f32/i1'`. Int8 made by this package names its calibration: `…/i8@<calibration>/…`. Apps store it next to every vector, so the format never changes."
+    },
+    {
+      "subpath": ".",
+      "name": "SpaceMismatch",
+      "kind": "variable",
+      "signature": "export declare const SpaceMismatch: import(\"@arki/failure\").FailureDefinition<\"embeddings.space_mismatch\", import(\"@standard-schema/spec\").StandardSchemaV1<{ expected: EmbeddingSpace; actual: EmbeddingSpace; }, { expected: EmbeddingSpace; actual: EmbeddingSpace; }>>; ; export type SpaceMismatch = ReturnType<typeof SpaceMismatch>;",
+      "jsdocSummary": "The configured model does not match the index embedding space."
+    },
+    {
+      "subpath": ".",
+      "name": "TokenCount",
+      "kind": "type",
+      "signature": "export type TokenCount = { readonly basis: 'reported' | 'counted' | 'estimated'; readonly count: number; } | { readonly basis: 'unknown'; };",
+      "jsdocSummary": "How a token count was obtained, weakest last: `reported` by the provider, `counted` by a tokenizer, `estimated` from characters."
+    },
+    {
+      "subpath": ".",
+      "name": "truncate",
+      "kind": "function",
+      "signature": "export declare function truncate(vector: Float32Array, dimensions: number, model: EmbeddingModel): import(\"@arki/failure\").Failure<\"embeddings.unsupported_input\", { index: number; part: \"batch\" | \"dimensions\" | \"image\" | \"quantization\" | \"text\"; }> | Float32Array<ArrayBufferLike>;",
+      "jsdocSummary": "The first `dimensions` values of a Matryoshka vector, re-normalised when the model's vectors are unit length. A size the model was not trained to cut to (not its native size, not in `model.matryoshka`) is `UnsupportedInput { part: 'dimensions' }`: a plain prefix of any other model loses most of its meaning."
+    },
+    {
+      "subpath": ".",
+      "name": "unpackBits",
+      "kind": "function",
+      "signature": "export declare function unpackBits(bits: Uint8Array, dimensions: number): Float32Array;",
+      "jsdocSummary": "Packed bits back to a float vector of ±1, for rescoring or a store that wants floats. The inverse of `quantize(v, 'binary')` up to sign."
+    },
+    {
+      "subpath": ".",
+      "name": "UnsupportedInput",
+      "kind": "variable",
+      "signature": "export declare const UnsupportedInput: import(\"@arki/failure\").FailureDefinition<\"embeddings.unsupported_input\", import(\"@standard-schema/spec\").StandardSchemaV1<{ index: number; part: \"batch\" | \"dimensions\" | \"image\" | \"quantization\" | \"text\"; }, { index: number; part: \"batch\" | \"dimensions\" | \"image\" | \"quantization\" | \"text\"; }>>; ; export type UnsupportedInput = ReturnType<typeof UnsupportedInput>;",
+      "jsdocSummary": "The embedding model does not support this input type."
+    },
+    {
+      "subpath": ".",
+      "name": "Usage",
+      "kind": "type",
+      "signature": "export type Usage = { readonly tokens: TokenCount; readonly requests: number; readonly cacheHits: number; readonly loadMs?: number; };",
+      "jsdocSummary": "What a call cost. `requests` counts native provider calls; `loadMs` is model load time when the provider reports it."
+    },
+    {
+      "subpath": ".",
+      "name": "withCache",
+      "kind": "function",
+      "signature": "export declare function withCache(embedder: Embedder, store?: CacheStore, options?: CacheOptions): Embedder;",
+      "jsdocSummary": "The same embedder with a vector cache in front. Cached inputs are filled from `store`; the rest go to the provider as one call, in order. A key covers the space, the purpose, the truncation choice, the namespace and the exact text, so a model, size or prompt change misses instead of answering a wrong vector in the right shape. Image inputs always go to the provider. `usage.cacheHits` counts the inputs the store answered."
+    },
+    {
+      "subpath": ".",
+      "name": "withMiddleware",
+      "kind": "function",
+      "signature": "export declare function withMiddleware(embedder: Embedder, ...middleware: readonly EmbedMiddleware[]): Embedder;",
+      "jsdocSummary": "The same embedder with its `embed` wrapped by each middleware, the first one outermost: it sees the call first and the result last. `model` and `space` stay the wrapped embedder's own."
+    },
+    {
+      "subpath": ".",
+      "name": "withResilience",
+      "kind": "function",
+      "signature": "export declare function withResilience(embedder: Embedder, policy?: Policy<never, ResilienceFailure>): Embedder;",
+      "jsdocSummary": "The same embedder with each `embed` call run through a resilience policy. It retries only `RateLimited` and `ModelUnavailable { reason: 'unreachable' }`; every other failure comes back after one attempt. `usage.requests` counts every attempt. A timeout, an open circuit or a full bulkhead is `ModelUnavailable { reason: 'unreachable' }`, a cancel is `Cancelled`: nothing is thrown for them."
+    },
+    {
+      "subpath": ".",
+      "name": "withTelemetry",
+      "kind": "function",
+      "signature": "export declare function withTelemetry(embedder: Embedder, options?: TelemetryOptions): Embedder;",
+      "jsdocSummary": "The same embedder with one `arki.embed` event per `embed` call, at `info`. `@arki/log` has no span type, so the event is the span: it carries the duration and, through `@arki/log/otel`, the active trace. Fields: `provider`, `model`, `dimensions`, `inputs` (the count), `tokenBasis`, `tokens`, `requests`, `cacheHits`, `durationMs` and `outcome` (`'ok'` or the failure's code). Input texts are left out unless `recordInputs: true`."
+    },
+    {
+      "subpath": "./bedrock",
+      "name": "BedrockModelOptions",
+      "kind": "type",
+      "signature": "export type BedrockModelOptions = { /** Default `'amazon.titan-embed-text-v2:0'`. */ readonly id?: string; /** Default: the SDK reads `AWS_REGION`. */ readonly region?: string; /** A Bedrock API key (bearer token). Default: the SDK reads `AWS_BEARER_TOKEN_BEDROCK`. */ readonly apiKey?: string; /** Default: the SDK reads `AWS_ACCESS_KEY_ID`. */ readonly accessKeyId?: string; /** Default: the SDK reads `AWS_SECRET_ACCESS_KEY`. */ readonly secretAccessKey?: string; /** Default: the SDK reads `AWS_SESSION_TOKEN`. */ readonly sessionToken?: string; /** Default: the regional `bedrock-runtime` endpoint. */ readonly baseURL?: string; /** Replaces the global `fetch`; tests inject a stub here. */ readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./bedrock",
+      "name": "bedrockModelOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const bedrockModelOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id?: string | undefined; region?: string | undefined; apiKey?: string | undefined; accessKeyId?: string | undefined; secretAccessKey?: string | undefined; sessionToken?: string | undefined; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id?: string | undefined; region?: string | undefined; apiKey?: string | undefined; accessKeyId?: string | undefined; secretAccessKey?: string | undefined; sessionToken?: string | undefined; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`BedrockModelOptions`, checked by `createBedrockModel`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./bedrock",
+      "name": "createBedrockModel",
+      "kind": "function",
+      "signature": "export declare function createBedrockModel(input?: BedrockModelOptions): EmbeddingModel | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }>;",
+      "jsdocSummary": "A Bedrock Titan model record. Titan ids are versioned (`:0`), so `assurance` is `immutable`."
+    },
+    {
+      "subpath": "./cohere",
+      "name": "CohereCompatibleRerankerOptions",
+      "kind": "type",
+      "signature": "export type CohereCompatibleRerankerOptions = { /** The server root, e.g. `'http://127.0.0.1:7997'`; `/rerank` is appended. */ readonly baseURL: string; /** The model the server runs, sent as `model`, e.g. `'BAAI/bge-reranker-v2-m3'`. */ readonly id: string; /** Sent as `Authorization: Bearer <apiKey>`. Local servers need none. */ readonly apiKey?: string; /** The weights' commit, when you pin it on the server. Part of the cache key. */ readonly revision?: string; /** Default 1000. Infinity takes up to 2048. */ readonly maxDocuments?: number; /** Tokens of query plus one document the server's model reads. Default 512. */ readonly maxInputTokens?: number; readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./cohere",
+      "name": "cohereCompatibleRerankerOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const cohereCompatibleRerankerOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ baseURL: string; id: string; apiKey?: string | undefined; revision?: string | undefined; maxDocuments?: number | undefined; maxInputTokens?: number | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ baseURL: string; id: string; apiKey?: string | undefined; revision?: string | undefined; maxDocuments?: number | undefined; maxInputTokens?: number | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`CohereCompatibleRerankerOptions`, checked by `createCohereCompatibleReranker`; a type test locks it."
+    },
+    {
+      "subpath": "./cohere",
+      "name": "CohereModelOptions",
+      "kind": "type",
+      "signature": "export type CohereModelOptions = { /** Default `'embed-v4.0'`. */ readonly id?: string; readonly apiKey: string; /** Default `'https://api.cohere.com'`. */ readonly baseURL?: string; readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./cohere",
+      "name": "cohereModelOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const cohereModelOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`CohereModelOptions`, checked by `createCohereModel`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./cohere",
+      "name": "CohereRerankerOptions",
+      "kind": "type",
+      "signature": "export type CohereRerankerOptions = { /** Default `'rerank-v3.5'`. */ readonly id?: string; readonly apiKey: string; /** Default `'https://api.cohere.com/v2'`. */ readonly baseURL?: string; readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./cohere",
+      "name": "cohereRerankerOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const cohereRerankerOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`CohereRerankerOptions`, checked by `createCohereReranker`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./cohere",
+      "name": "createCohereCompatibleReranker",
+      "kind": "function",
+      "signature": "export declare function createCohereCompatibleReranker(input: CohereCompatibleRerankerOptions): Reranker | ConfigurationFailure;",
+      "jsdocSummary": "A reranker on a server that speaks Cohere's protocol: Infinity, vLLM or llama.cpp started with `--reranking`. The operator decides what the server runs, so state `maxInputTokens` and, to key a cache on the weights, `revision`."
+    },
+    {
+      "subpath": "./cohere",
+      "name": "createCohereModel",
+      "kind": "function",
+      "signature": "export declare function createCohereModel(input: CohereModelOptions): EmbeddingModel | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }>;",
+      "jsdocSummary": "A Cohere model record. Cohere versions its models by name, so `assurance` is `immutable`."
+    },
+    {
+      "subpath": "./cohere",
+      "name": "createCohereReranker",
+      "kind": "function",
+      "signature": "export declare function createCohereReranker(input: CohereRerankerOptions): Reranker | ConfigurationFailure;",
+      "jsdocSummary": "A Cohere reranker. Cohere has no \"refuse a long document\" switch: past `maxInputTokens` it cuts or chunks on its side, so `rerank()`'s length check is the only guard under `'fail'`. That check estimates 4 characters per token, which undercounts Romanian (near 3) and CJK text (near 1): such a document can pass it and be cut by Cohere. Split such text before ranking."
+    },
+    {
+      "subpath": "./dot",
+      "name": "embeddings",
+      "kind": "function",
+      "signature": "export declare function embeddings(options: EmbeddingsPluginOptions): Omit<import(\"@arki/dot/unit\").Unit<import(\"@arki/dot/unit\").WireNeeds<import(\"@arki/dot/unit\").EmptyShape>, import(\"@arki/dot/unit\").ProvidedValues<{ embedder: Embedder | EmbedFailure; }>, import(\"@arki/dot/unit\").EmptyShape, \"embeddings\", import(\"@arki/dot/unit\").EmptyOwnership, import(\"@arki/dot/unit\").EmptyPhases>, \"factories\" | \"hooks\" | \"logging\"> & import(\"@arki/dot/unit\").LoggingSlot<import(\"@arki/dot/unit\").DotLoggingHandle<undefined>> & import(\"@arki/dot/unit\").FactoryContract<import(\"@arki/dot/unit\").ProvidedValues<{ embedder: Embedder | EmbedFailure; }>> & { readonly factories: { readonly embedder: (ctx: never) => Embedder | EmbedFailure; }; readonly hooks: import(\"@arki/dot/unit\").PhaseHooks<never, { readonly configure: undefined; readonly start: undefined; readonly stop: undefined; readonly dispose: undefined; }, import(\"@arki/dot/unit\").DotConfigureContext> & import(\"@arki/dot/unit\").BootSlot<import(\"@arki/dot/unit\").CtxOf<import(\"@arki/dot/unit\").EmptyShape> & import(\"@arki/dot/unit\").ProvidedValues<{ embedder: Embedder | EmbedFailure; }> & import(\"@arki/dot/unit\").KernelCtx, undefined>; } & import(\"@arki/dot/unit\").InfraRole;",
+      "jsdocSummary": "Publish `embedder`: the app's one `Embedder`, built once at boot. A configuration that does not build (a bad option, a missing key, a size the model refuses) stops the boot: `boot()` returns that failure, a `ConfigurationFailure` for configuration faults. An app never runs with embeddings silently off. An app that can run without embeddings must not mount this unit."
+    },
+    {
+      "subpath": "./dot",
+      "name": "EmbeddingsPluginOptions",
+      "kind": "type",
+      "signature": "export type EmbeddingsPluginOptions = { /** * A model record, an `Embedder`, or a function returning one of them or a failure. The function * runs once, at boot: read the app's env there and build the model with its provider's * `createXModel`. A failure it returns (a `ConfigurationFailure` for a missing key) stops the boot. */ readonly model: EmbeddingModel | Embedder | (() => EmbeddingModel | Embedder | EmbedFailure); /** `true`: `withCache` over a `memoryCacheStore()`; a store: `withCache` over it. Default `false`. */ readonly cache?: boolean | CacheStore; /** `true`: `withResilience` with its default policy; a policy: that one. Default `false`. */ readonly resilience?: boolean | NonNullable<Parameters<typeof withResilience>[1]>; };",
+      "jsdocSummary": "Options `embeddings()` takes. Everything is read once, at boot."
+    },
+    {
+      "subpath": "./dot",
+      "name": "embeddingsPluginOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const embeddingsPluginOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ model: Embedder | EmbeddingModel | (() => EmbeddingModel | Embedder | EmbedFailure); cache?: boolean | CacheStore | undefined; resilience?: boolean | (import(\"@arki/resilience\").PolicyExecution<never, import(\"@arki/resilience\").ResilienceFailure> & { readonly onSuccess: import(\"@arki/resilience\").PolicyEvent<import(\"@arki/resilience\").SuccessEvent>; readonly onFailure: import(\"@arki/resilience\").PolicyEvent<import(\"@arki/resilience\").FailureEvent>; }) | undefined; }>, Readonly<{ model: Embedder | EmbeddingModel | (() => EmbeddingModel | Embedder | EmbedFailure); cache?: boolean | CacheStore | undefined; resilience?: boolean | (import(\"@arki/resilience\").PolicyExecution<never, import(\"@arki/resilience\").ResilienceFailure> & { readonly onSuccess: import(\"@arki/resilience\").PolicyEvent<import(\"@arki/resilience\").SuccessEvent>; readonly onFailure: import(\"@arki/resilience\").PolicyEvent<import(\"@arki/resilience\").FailureEvent>; }) | undefined; }>>;",
+      "jsdocSummary": "`EmbeddingsPluginOptions`, checked when `embeddings()` boots; a type test locks it to the type."
+    },
+    {
+      "subpath": "./google",
+      "name": "createGoogleModel",
+      "kind": "function",
+      "signature": "export declare function createGoogleModel(input: GoogleModelOptions): EmbeddingModel | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }>;",
+      "jsdocSummary": "A Google Gemini model record. The ids are moving names, not dated snapshots, so `assurance` is `mutable`."
+    },
+    {
+      "subpath": "./google",
+      "name": "GoogleModelOptions",
+      "kind": "type",
+      "signature": "export type GoogleModelOptions = { /** Default `'gemini-embedding-001'`. */ readonly id?: string; readonly apiKey: string; /** Default: the SDK's `https://generativelanguage.googleapis.com/v1beta`. */ readonly baseURL?: string; /** Replaces the global `fetch`; tests inject a stub here. */ readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./google",
+      "name": "googleModelOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const googleModelOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`GoogleModelOptions`, checked by `createGoogleModel`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./jina",
+      "name": "createJinaModel",
+      "kind": "function",
+      "signature": "export declare function createJinaModel(input: JinaModelOptions): EmbeddingModel | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }>;",
+      "jsdocSummary": "A Jina model record. Jina versions its models by name, so `assurance` is `immutable`."
+    },
+    {
+      "subpath": "./jina",
+      "name": "createJinaReranker",
+      "kind": "function",
+      "signature": "export declare function createJinaReranker(input: JinaRerankerOptions): Reranker | ConfigurationFailure;",
+      "jsdocSummary": "A Jina reranker. Jina has no documented \"refuse a long document\" switch: it chunks on its side, so `rerank()`'s length check is the only guard under `'fail'`. That check estimates 4 characters per token, which undercounts Romanian (near 3) and CJK text (near 1)."
+    },
+    {
+      "subpath": "./jina",
+      "name": "JinaModelOptions",
+      "kind": "type",
+      "signature": "export type JinaModelOptions = { /** Default `'jina-embeddings-v3'`. */ readonly id?: string; readonly apiKey: string; /** Default `'https://api.jina.ai/v1'`. */ readonly baseURL?: string; readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./jina",
+      "name": "jinaModelOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const jinaModelOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`JinaModelOptions`, checked by `createJinaModel`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./jina",
+      "name": "JinaRerankerOptions",
+      "kind": "type",
+      "signature": "export type JinaRerankerOptions = { /** Default `'jina-reranker-v2-base-multilingual'`. */ readonly id?: string; readonly apiKey: string; /** Default `'https://api.jina.ai/v1'`. */ readonly baseURL?: string; readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./jina",
+      "name": "jinaRerankerOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const jinaRerankerOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`JinaRerankerOptions`, checked by `createJinaReranker`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./kv",
+      "name": "kvCacheStore",
+      "kind": "function",
+      "signature": "export declare function kvCacheStore(kv: { get(key: string, schema: typeof storedValueSchema): Promise<string | undefined | Failure>; set(key: string, value: string, expirationSeconds?: number): Promise<unknown>; }, options?: { readonly prefix?: string; }): CacheStore;",
+      "jsdocSummary": "A `CacheStore` over `kv`. Keys get `prefix` (default `'arki:embeddings:'`); a `ttlMs` becomes whole seconds, rounded up. A stored value that is not base64 (another writer, a stray key) reads as a miss, so `withCache` embeds again instead of decoding junk. A KV failure (Redis down, a cancelled command) is a cache, so it is logged and read as a miss, or the write is skipped."
+    },
+    {
+      "subpath": "./mistral",
+      "name": "createMistralModel",
+      "kind": "function",
+      "signature": "export declare function createMistralModel(input: MistralModelOptions): EmbeddingModel | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }>;",
+      "jsdocSummary": "A Mistral model record. `mistral-embed` is a moving name (the dated `mistral-embed-2312` is a different id), so `assurance` is `mutable`. `purpose` is ignored: the API has no such field."
+    },
+    {
+      "subpath": "./mistral",
+      "name": "MistralModelOptions",
+      "kind": "type",
+      "signature": "export type MistralModelOptions = { /** Default `'mistral-embed'`. */ readonly id?: string; readonly apiKey: string; /** Default: the SDK's `https://api.mistral.ai/v1`. */ readonly baseURL?: string; /** Replaces the global `fetch`; tests inject a stub here. */ readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./mistral",
+      "name": "mistralModelOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const mistralModelOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`MistralModelOptions`, checked by `createMistralModel`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./ollama",
+      "name": "createOllamaModel",
+      "kind": "function",
+      "signature": "export declare function createOllamaModel(input?: OllamaModelOptions): EmbeddingModel | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }>;",
+      "jsdocSummary": "An Ollama model record. `revision` is the model digest, read once from `/api/tags` on the first call (resolving a model must never touch the network), so it is `undefined` until then."
+    },
+    {
+      "subpath": "./ollama",
+      "name": "OllamaModelOptions",
+      "kind": "type",
+      "signature": "export type OllamaModelOptions = { /** Default `'qwen3-embedding:0.6b'`. */ readonly id?: string; /** Default `'http://127.0.0.1:11434'`. */ readonly baseURL?: string; /** Ollama `keep_alive`: how long the model stays loaded after a call (`'5m'`, seconds, `-1`). */ readonly keepAlive?: string | number; /** * Required for a model id not in the facts table: its native output size. For a known id, its * native size or one of its Matryoshka sizes; any other value is a `ConfigurationFailure`. */ readonly dimensions?: number; /** Overrides the facts table's prefixes, e.g. to keep querying a corpus embedded without one. */ readonly instruction?: Instruction; readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./ollama",
+      "name": "ollamaModelOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const ollamaModelOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id?: string | undefined; baseURL?: string | undefined; keepAlive?: string | number | undefined; dimensions?: number | undefined; instruction?: (Readonly<Partial<Record<\"classification\" | \"clustering\" | \"document\" | \"query\" | \"similarity\", string>>> & Readonly<{ version: number; }>) | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id?: string | undefined; baseURL?: string | undefined; keepAlive?: string | number | undefined; dimensions?: number | undefined; instruction?: (Readonly<Partial<Record<\"classification\" | \"clustering\" | \"document\" | \"query\" | \"similarity\", string>>> & Readonly<{ version: number; }>) | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`OllamaModelOptions`, checked by `createOllamaModel`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./openai",
+      "name": "createOpenAIModel",
+      "kind": "function",
+      "signature": "export declare function createOpenAIModel(input: OpenAIModelOptions): EmbeddingModel | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }>;",
+      "jsdocSummary": "An OpenAI model record. Snapshot ids never change their vectors, so `assurance` is `immutable`."
+    },
+    {
+      "subpath": "./openai",
+      "name": "OpenAIModelOptions",
+      "kind": "type",
+      "signature": "export type OpenAIModelOptions = { /** Default `'text-embedding-3-small'`. */ readonly id?: string; readonly apiKey: string; /** An OpenAI-compatible base URL, e.g. a proxy. Default: the SDK's. */ readonly baseURL?: string; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./openai",
+      "name": "openaiModelOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const openaiModelOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; }>, Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; }>>;",
+      "jsdocSummary": "`OpenAIModelOptions`, checked by `createOpenAIModel`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./openai-compatible",
+      "name": "createOpenAICompatibleModel",
+      "kind": "function",
+      "signature": "export declare function createOpenAICompatibleModel(input: OpenAICompatibleModelOptions): EmbeddingModel | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }>;",
+      "jsdocSummary": "A model record for an OpenAI-compatible server. The operator decides what the id serves, so `assurance` is `operator-pinned`."
+    },
+    {
+      "subpath": "./openai-compatible",
+      "name": "OpenAICompatibleModelOptions",
+      "kind": "type",
+      "signature": "export type OpenAICompatibleModelOptions = { /** The model name the server expects, e.g. `'Qwen/Qwen3-Embedding-8B'`. */ readonly id: string; /** Up to and including the version segment, e.g. `'https://api.tokenfactory.nebius.com/v1'`. */ readonly baseURL: string; /** Sent as `Authorization: Bearer <apiKey>`. Local servers often need none. */ readonly apiKey?: string; /** The model's native output size. */ readonly dimensions: number; /** Inputs per request. Default 256. */ readonly maxBatch?: number; /** Tokens per request. Default 300 000. */ readonly maxBatchTokens?: number; /** Default 8192. */ readonly maxInputTokens?: number; /** Whether the server answers unit-length vectors. Default `true`. */ readonly normalized?: boolean; /** Default: `QWEN3_INSTRUCTION` for a Qwen3-Embedding id, else no prefix. */ readonly instruction?: Instruction; /** Names the server in failure messages, e.g. `'nebius'`. Default `'openai-compatible'`. */ readonly label?: string; readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./openai-compatible",
+      "name": "openaiCompatibleModelOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const openaiCompatibleModelOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id: string; baseURL: string; apiKey?: string | undefined; dimensions: number; maxBatch?: number | undefined; maxBatchTokens?: number | undefined; maxInputTokens?: number | undefined; normalized?: boolean | undefined; instruction?: (Readonly<Partial<Record<\"classification\" | \"clustering\" | \"document\" | \"query\" | \"similarity\", string>>> & Readonly<{ version: number; }>) | undefined; label?: string | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id: string; baseURL: string; apiKey?: string | undefined; dimensions: number; maxBatch?: number | undefined; maxBatchTokens?: number | undefined; maxInputTokens?: number | undefined; normalized?: boolean | undefined; instruction?: (Readonly<Partial<Record<\"classification\" | \"clustering\" | \"document\" | \"query\" | \"similarity\", string>>> & Readonly<{ version: number; }>) | undefined; label?: string | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`OpenAICompatibleModelOptions`, checked by `createOpenAICompatibleModel`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./rerank",
+      "name": "rerank",
+      "kind": "function",
+      "signature": "export declare function rerank<Item>(reranker: Reranker, query: string, items: readonly Item[], options: RerankOptions<Item>): Promise<import(\"@arki/failure\").Failure<\"embeddings.cancelled\", undefined> | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }> | import(\"@arki/failure\").Failure<\"embeddings.input_too_long\", { index: number; tokens: TokenCount; max: number; }> | import(\"@arki/failure\").Failure<\"embeddings.invalid_output\", { reason: string; }> | import(\"@arki/failure\").Failure<\"embeddings.model_unavailable\", { model: string; reason: \"not-pulled\" | \"peer-missing\" | \"unknown-model\" | \"unreachable\"; }> | import(\"@arki/failure\").Failure<\"embeddings.rate_limited\", { retryAfterMs?: number | undefined; }> | import(\"@arki/failure\").Failure<\"embeddings.space_mismatch\", { expected: import(\"../types.js\").EmbeddingSpace; actual: import(\"../types.js\").EmbeddingSpace; }> | import(\"@arki/failure\").Failure<\"embeddings.unsupported_input\", { index: number; part: \"batch\" | \"dimensions\" | \"image\" | \"quantization\" | \"text\"; }> | import(\"@arki/failure\").Failure<\"failure.unexpected_defect\", undefined> | { hits: { item: Item; index: number; score: number; }[]; usage: Usage; }>;",
+      "jsdocSummary": "Orders `items` by relevance to `query`. Splits them over `maxDocuments` requests and merges the scores, then keeps `topK`, so a per-request cut never drops a global winner. Each hit carries the item itself and its index in `items`; ties keep input order. All or nothing: the first failure is returned and no partial ranking is."
+    },
+    {
+      "subpath": "./rerank",
+      "name": "RERANK_PROVIDERS",
+      "kind": "variable",
+      "signature": "export declare const RERANK_PROVIDERS: readonly ['cohere', 'cohere-compatible', 'voyage', 'jina', 'tei', 'transformers', 'fake'];",
+      "jsdocSummary": "Every provider a reranker in this package talks to. `cohere-compatible` = Infinity, vLLM, llama.cpp."
+    },
+    {
+      "subpath": "./rerank",
+      "name": "RerankCacheOptions",
+      "kind": "type",
+      "signature": "export type RerankCacheOptions = { /** Mixed into every key, so two caches can share one store without sharing entries. */ readonly namespace?: string; /** Passed to `store.set`; absent = the store's own default. */ readonly ttlMs?: number; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./rerank",
+      "name": "rerankCacheOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const rerankCacheOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ namespace?: string | undefined; ttlMs?: number | undefined; }>, Readonly<{ namespace?: string | undefined; ttlMs?: number | undefined; }>>;",
+      "jsdocSummary": "`RerankCacheOptions`, checked by `withRerankCache`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./rerank",
+      "name": "RerankCallOptions",
+      "kind": "type",
+      "signature": "export type RerankCallOptions = { /** `true`: the provider cuts a document over the limit. Otherwise an over-long one is `InputTooLong`. */ readonly truncate?: boolean; readonly signal?: AbortSignal; };",
+      "jsdocSummary": "Options of one native reranker call."
+    },
+    {
+      "subpath": "./rerank",
+      "name": "rerankCallOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const rerankCallOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ truncate?: boolean | undefined; signal?: AbortSignal | undefined; }>, Readonly<{ truncate?: boolean | undefined; signal?: AbortSignal | undefined; }>>;",
+      "jsdocSummary": "`RerankCallOptions`, a type test locks it to the type."
+    },
+    {
+      "subpath": "./rerank",
+      "name": "Reranker",
+      "kind": "type",
+      "signature": "export type Reranker = { readonly provider: RerankProviderName; readonly id: string; /** The weights' commit, when the reranker knows it. Part of the cache key. */ readonly revision?: string; readonly local: boolean; /** Most documents one `rerank` call takes. */ readonly maxDocuments: number; /** Tokens of query plus one document the model reads, after its own prompt and special tokens. */ readonly maxInputTokens: number; /** Exact tokens of a text, when the reranker holds its tokenizer. Otherwise `rerank()` estimates. */ readonly countTokens?: (text: string) => number; rerank(query: string, documents: readonly string[], options: RerankCallOptions): Promise<RerankResult | EmbedFailure>; /** Frees a model loaded in process. */ readonly dispose?: () => Promise<void>; };",
+      "jsdocSummary": "A reranking model with its server fixed. `rerank` is one request of at most `maxDocuments` documents, as given: no length check, no split, no retry. Call it through {@link rerank}. Scores are pointwise (each pair is scored alone), so scores from two calls compare."
+    },
+    {
+      "subpath": "./rerank",
+      "name": "RerankHit",
+      "kind": "type",
+      "signature": "export type RerankHit = { readonly index: number; readonly score: number; };",
+      "jsdocSummary": "One scored document: `index` into the documents sent, `score` higher = more relevant."
+    },
+    {
+      "subpath": "./rerank",
+      "name": "RerankOptions",
+      "kind": "type",
+      "signature": "export type RerankOptions<Item> = { /** The text the reranker reads for an item. */ readonly text: (item: Item) => string; /** Keep the best `topK` after every score is in. Default: all. */ readonly topK?: number; /** * A document that does not fit beside the query: * - `'fail'` (default): `InputTooLong` naming the item, before any request. * - `'truncate'`: the provider cuts its end off. * - `'split'`: scored as overlapping windows that each fit; the item gets its best window's score. */ readonly onTooLong?: 'fail' | 'truncate' | 'split'; readonly signal?: AbortSignal; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./rerank",
+      "name": "rerankOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const rerankOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ text: (item: unknown) => string; topK?: number | undefined; onTooLong?: \"fail\" | \"split\" | \"truncate\" | undefined; signal?: AbortSignal | undefined; }>, Readonly<{ text: (item: unknown) => string; topK?: number | undefined; onTooLong?: \"fail\" | \"split\" | \"truncate\" | undefined; signal?: AbortSignal | undefined; }>>;",
+      "jsdocSummary": "`RerankOptions`, checked by `rerank`; a type test locks it to the type at `Item = unknown` (a function field is checked as a function, so the item type is not part of the schema)."
+    },
+    {
+      "subpath": "./rerank",
+      "name": "RerankProviderName",
+      "kind": "type",
+      "signature": "export type RerankProviderName = (typeof RERANK_PROVIDERS)[number];",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./rerank",
+      "name": "RerankResult",
+      "kind": "type",
+      "signature": "export type RerankResult = { readonly hits: readonly RerankHit[]; readonly usage: Usage; };",
+      "jsdocSummary": "What one reranker call answers: every document scored once, sorted by score, highest first."
+    },
+    {
+      "subpath": "./rerank",
+      "name": "withRerankCache",
+      "kind": "function",
+      "signature": "export declare function withRerankCache(reranker: Reranker, store: CacheStore, options?: RerankCacheOptions): Reranker;",
+      "jsdocSummary": "The same reranker with a score cache in front. A key covers the provider, model, revision, truncation choice, namespace, query and document, so a model change misses instead of answering an old score. Cached documents are filled from `store`; the rest go to the reranker as one call. A store that throws is a miss (reads) or skipped (writes), logged at `warn`; an entry that is not a score is a miss."
+    },
+    {
+      "subpath": "./sparse",
+      "name": "createSparseModel",
+      "kind": "function",
+      "signature": "export declare function createSparseModel(input: SparseModelOptions): SparseEmbedder | ConfigurationFailure;",
+      "jsdocSummary": "A sparse embedder over TEI's `/embed_sparse`. The operator decides what the server runs, so state `dimensions` (the vocabulary size) and, to pin it, `revision`."
+    },
+    {
+      "subpath": "./sparse",
+      "name": "isSameSparseSpace",
+      "kind": "function",
+      "signature": "export declare function isSameSparseSpace(a: SparseSpace, b: SparseSpace): boolean;",
+      "jsdocSummary": "True when sparse vectors from `a` and `b` are comparable: same space and same vocabulary."
+    },
+    {
+      "subpath": "./sparse",
+      "name": "requireSparseSpace",
+      "kind": "function",
+      "signature": "export declare function requireSparseSpace(expected: SparseSpace, actual: SparseSpace): SpaceMismatch | undefined;",
+      "jsdocSummary": "`SpaceMismatch` when `actual` is not the space an index was built in, else `undefined`."
+    },
+    {
+      "subpath": "./sparse",
+      "name": "SparseBatch",
+      "kind": "type",
+      "signature": "export type SparseBatch = { readonly vectors: readonly SparseVector[]; readonly space: SparseSpace; readonly usage: Usage; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./sparse",
+      "name": "SparseEmbedder",
+      "kind": "type",
+      "signature": "export type SparseEmbedder = { readonly id: string; readonly space: SparseSpace; readonly maxBatch: number; readonly maxInputTokens: number; embed(texts: readonly string[], options: SparseEmbedOptions): Promise<SparseBatch | EmbedFailure>; };",
+      "jsdocSummary": "A sparse model with its server fixed. `embed` is one request of at most `maxBatch` texts, no retry."
+    },
+    {
+      "subpath": "./sparse",
+      "name": "SparseEmbedOptions",
+      "kind": "type",
+      "signature": "export type SparseEmbedOptions = { /** An input longer than the server accepts: `'fail'` (default) returns `InputTooLong`; `'truncate'` lets TEI cut it. */ readonly onTooLong?: 'fail' | 'truncate'; readonly signal?: AbortSignal; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./sparse",
+      "name": "sparseEmbedOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const sparseEmbedOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ onTooLong?: \"fail\" | \"truncate\" | undefined; signal?: AbortSignal | undefined; }>, Readonly<{ onTooLong?: \"fail\" | \"truncate\" | undefined; signal?: AbortSignal | undefined; }>>;",
+      "jsdocSummary": "`SparseEmbedOptions`, checked by the embedder's `embed`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./sparse",
+      "name": "SparseModelOptions",
+      "kind": "type",
+      "signature": "export type SparseModelOptions = { /** The model TEI serves, e.g. `'naver/splade-v3'`. */ readonly id: string; /** The TEI server root, e.g. `'http://127.0.0.1:8080'`. */ readonly baseURL: string; /** Sent as `Authorization: Bearer <apiKey>`. Local servers need none. */ readonly apiKey?: string; /** HF commit the server runs; part of the space. */ readonly revision?: string; /** Vocabulary size: 30522 for BERT-based SPLADE. Every index must be below it. */ readonly dimensions: number; /** Default: `id`. Set it when the tokenizer is not the model's own. */ readonly vocabulary?: string; /** TEI `--max-client-batch-size`. Default 32. */ readonly maxBatch?: number; /** TEI `max_input_length`. Default 512. */ readonly maxInputTokens?: number; readonly fetch?: FetchLike; readonly log?: EmbeddingsLogger; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./sparse",
+      "name": "sparseModelOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const sparseModelOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id: string; baseURL: string; apiKey?: string | undefined; revision?: string | undefined; dimensions: number; vocabulary?: string | undefined; maxBatch?: number | undefined; maxInputTokens?: number | undefined; fetch?: FetchLike | undefined; log?: import(\"@arki/log\").Logger | undefined; }>, Readonly<{ id: string; baseURL: string; apiKey?: string | undefined; revision?: string | undefined; dimensions: number; vocabulary?: string | undefined; maxBatch?: number | undefined; maxInputTokens?: number | undefined; fetch?: FetchLike | undefined; log?: import(\"@arki/log\").Logger | undefined; }>>;",
+      "jsdocSummary": "`SparseModelOptions`, checked by `createSparseModel`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./sparse",
+      "name": "SparseSpace",
+      "kind": "type",
+      "signature": "export type SparseSpace = EmbeddingSpace & { /** The tokenizer vocabulary, e.g. `'naver/splade-v3'`. Index 2054 is a different token in another vocabulary. */ readonly vocabulary: string; };",
+      "jsdocSummary": "The space of a sparse vector: `dimensions` is the vocabulary size and `vocabulary` names the tokenizer its indices point into. Held once per batch and per index, not on every vector."
+    },
+    {
+      "subpath": "./sparse",
+      "name": "sparseSpaceId",
+      "kind": "function",
+      "signature": "export declare function sparseSpaceId(space: SparseSpace): string;",
+      "jsdocSummary": "The space as one readable string: the dense {@link spaceId } plus `/v:<vocabulary>`."
+    },
+    {
+      "subpath": "./sparse",
+      "name": "SparseVector",
+      "kind": "type",
+      "signature": "export type SparseVector = { readonly indices: Uint32Array; readonly values: Float32Array; };",
+      "jsdocSummary": "Token weights: `indices` ascending and unique, `values[i]` the weight of token `indices[i]`."
+    },
+    {
+      "subpath": "./tei",
+      "name": "createTeiReranker",
+      "kind": "function",
+      "signature": "export declare function createTeiReranker(input: TeiRerankerOptions): Reranker | ConfigurationFailure;",
+      "jsdocSummary": "A TEI reranker. `truncate` is sent as the caller chose (TEI's own default is `false`), so a pair over `max_input_length` is `InputTooLong` unless `rerank()` was told to truncate. Scores are TEI's normalised ones (`raw_scores: false`)."
+    },
+    {
+      "subpath": "./tei",
+      "name": "TeiRerankerOptions",
+      "kind": "type",
+      "signature": "export type TeiRerankerOptions = { /** The model the server runs, e.g. `'BAAI/bge-reranker-v2-m3'`. TEI takes no model field; this names the scores. */ readonly id: string; /** The server root, e.g. `'http://127.0.0.1:8080'`. */ readonly baseURL: string; /** Sent as `Authorization: Bearer <apiKey>`. Local servers need none. */ readonly apiKey?: string; /** HF commit the server runs. Part of the cache key. */ readonly revision?: string; /** TEI `--max-client-batch-size`. Default 32. */ readonly maxDocuments?: number; /** TEI `max_input_length` for query plus one document. Default 512. */ readonly maxInputTokens?: number; readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./tei",
+      "name": "teiRerankerOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const teiRerankerOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id: string; baseURL: string; apiKey?: string | undefined; revision?: string | undefined; maxDocuments?: number | undefined; maxInputTokens?: number | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id: string; baseURL: string; apiKey?: string | undefined; revision?: string | undefined; maxDocuments?: number | undefined; maxInputTokens?: number | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`TeiRerankerOptions`, checked by `createTeiReranker`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./testing",
+      "name": "fakeEmbedder",
+      "kind": "function",
+      "signature": "export declare function fakeEmbedder(options: FakeEmbedderOptions): Embedder;",
+      "jsdocSummary": "A seeded, deterministic, not-semantic embedder. Its vectors go through the same validation as a real one."
+    },
+    {
+      "subpath": "./testing",
+      "name": "FakeEmbedderOptions",
+      "kind": "type",
+      "signature": "export type FakeEmbedderOptions = { readonly dimensions: number; /** Different seeds give unrelated vectors for the same text. Default 0. */ readonly seed?: number; /** An input whose exact text is a key fails the whole call with that failure. */ readonly failures?: Readonly<Record<string, EmbedFailure>>; /** Waits this long per call, so concurrency and cancellation are observable. */ readonly delayMs?: number; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./testing",
+      "name": "fakeReranker",
+      "kind": "function",
+      "signature": "export declare function fakeReranker(options?: FakeRerankerOptions): Reranker;",
+      "jsdocSummary": "A seeded, deterministic, not-semantic reranker. Like a real one it refuses more than `maxDocuments` documents and, unless told to truncate, a query and document over `maxInputTokens`."
+    },
+    {
+      "subpath": "./testing",
+      "name": "FakeRerankerOptions",
+      "kind": "type",
+      "signature": "export type FakeRerankerOptions = { /** A fixed score per exact document text. Any other document gets a seeded score in [0, 1). */ readonly scores?: Readonly<Record<string, number>>; /** Different seeds give unrelated scores for the same pair. Default 0. */ readonly seed?: number; /** Default 1000. */ readonly maxDocuments?: number; /** Default 512, counted as `rerank()` estimates without a tokenizer: characters / 4. */ readonly maxInputTokens?: number; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./testing",
+      "name": "fixtureEmbedder",
+      "kind": "function",
+      "signature": "export declare function fixtureEmbedder(recordings: unknown): import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }> | { model: EmbeddingModel; space: Readonly<{ provider: \"bedrock\" | \"cohere\" | \"fake\" | \"google\" | \"jina\" | \"mistral\" | \"ollama\" | \"openai\" | \"openai-compatible\" | \"tei\" | \"transformers\" | \"voyage\"; model: string; revision?: string | undefined; dimensions: number; normalized: boolean; quantization: \"binary\" | \"float32\" | \"int8\"; calibration?: string | undefined; instructionVersion: number; }>; spaceFor: (options: Pick<EmbedOptions, \"dimensions\" | \"quantization\">) => Readonly<{ provider: \"bedrock\" | \"cohere\" | \"fake\" | \"google\" | \"jina\" | \"mistral\" | \"ollama\" | \"openai\" | \"openai-compatible\" | \"tei\" | \"transformers\" | \"voyage\"; model: string; revision?: string | undefined; dimensions: number; normalized: boolean; quantization: \"binary\" | \"float32\" | \"int8\"; calibration?: string | undefined; instructionVersion: number; }>; embed: (inputs: readonly EmbedInput[], options: EmbedOptions) => Promise<import(\"@arki/failure\").Failure<\"embeddings.cancelled\", undefined>> | Promise<import(\"@arki/failure\").Failure<\"embeddings.invalid_output\", { reason: string; }>> | Promise<{ vectors: (Float32Array<ArrayBufferLike> | Int8Array<ArrayBufferLike> | Uint8Array<ArrayBufferLike>)[]; space: Readonly<{ provider: \"bedrock\" | \"cohere\" | \"fake\" | \"google\" | \"jina\" | \"mistral\" | \"ollama\" | \"openai\" | \"openai-compatible\" | \"tei\" | \"transformers\" | \"voyage\"; model: string; revision?: string | undefined; dimensions: number; normalized: boolean; quantization: \"binary\" | \"float32\" | \"int8\"; calibration?: string | undefined; instructionVersion: number; }>; usage: { tokens: Readonly<{ basis: \"counted\" | \"estimated\" | \"reported\"; count: number; }> | Readonly<{ basis: \"unknown\"; }>; requests: number; cacheHits: number; }; }>; };",
+      "jsdocSummary": "An embedder that answers only from recordings made by `recordEmbedder` (the parsed file). A request that was not recorded is `InvalidOutput { reason: 'no fixture …' }`, never a made-up vector. A file that does not parse, is empty, or mixes spaces is `ConfigurationFailure`."
+    },
+    {
+      "subpath": "./testing",
+      "name": "fromArkiEmbedder",
+      "kind": "function",
+      "signature": "export declare function fromArkiEmbedder(embedder: Embedder): JudgeEmbedder;",
+      "jsdocSummary": "Lets any `@arki/embeddings` embedder feed the `@arki/testing/ai` judge and `similarTo`. Texts go in as `purpose: 'document'`, because both sides of a similarity check are the same kind of text. A failure value becomes a thrown `Error` with the failure's message: a judge cannot go on without vectors."
+    },
+    {
+      "subpath": "./testing",
+      "name": "recordEmbedder",
+      "kind": "function",
+      "signature": "export declare function recordEmbedder(embedder: Embedder, path: string): Embedder;",
+      "jsdocSummary": "The same embedder, writing every successful text-only call to `path` as JSON: one array of `{ key, request, limits, vectors, space, tokens }`, rewritten after each call. A recording run starts a fresh file. Node, Bun and Deno only (it writes with `node:fs`); replay runs anywhere."
+    },
+    {
+      "subpath": "./transformers",
+      "name": "createTransformersModel",
+      "kind": "function",
+      "signature": "export declare function createTransformersModel(input?: TransformersModelOptions): Promise<EmbeddingModel | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }> | LoadFailure>;",
+      "jsdocSummary": "Loads a model in process and embeds one probe text, so `dimensions` is what the weights produce. Concurrent calls with the same id, revision, dtype, device and cache dir share one load; the session is freed when every record from it has called `dispose()`. `countTokens` is exact (the loaded tokenizer). The first load downloads the weights (about 316 MB for EmbeddingGemma `q8`)."
+    },
+    {
+      "subpath": "./transformers",
+      "name": "createTransformersReranker",
+      "kind": "function",
+      "signature": "export declare function createTransformersReranker(options?: TransformersRerankerOptions): Promise<Reranker | ReturnType<typeof ModelUnavailable> | ReturnType<typeof InvalidOutput>>;",
+      "jsdocSummary": "Loads a reranker in process and scores one probe pair, so a model that is not the kind expected fails here and not on the first query. `countTokens` is exact (the loaded tokenizer). Each call loads its own session; `dispose()` frees it. Qwen3-Reranker scores one document per model run: its output holds a logit per vocabulary entry (151k) at every position."
+    },
+    {
+      "subpath": "./transformers",
+      "name": "TransformersModelOptions",
+      "kind": "type",
+      "signature": "export type TransformersModelOptions = { /** Hugging Face model id. Default `'onnx-community/embeddinggemma-300m-ONNX'`. */ readonly id?: string; /** * Commit, branch or tag. Default: the pinned commit for an id listed below, `'main'` for any other id. * A 40-hex commit makes the model `immutable`; anything else is `mutable`. */ readonly revision?: string; /** ONNX weights to load. Default `'q8'`. EmbeddingGemma does not support `fp16`. */ readonly dtype?: DataType; /** `'cpu'` (Node, Bun), `'webgpu'` or `'wasm'` (browser). Default: Transformers.js picks. */ readonly device?: DeviceType; /** Where downloaded weights are kept. Default: Transformers.js' own cache. */ readonly cacheDir?: string; /** Download and load progress, straight from Transformers.js. */ readonly onProgress?: ProgressCallback; /** Overrides the prefixes; required to get them for an id other than EmbeddingGemma. */ readonly instruction?: Instruction; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./transformers",
+      "name": "transformersModelOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const transformersModelOptionsSchema: SchemaWithJson<TransformersModelOptions, TransformersModelOptions>;",
+      "jsdocSummary": "`TransformersModelOptions`, checked by `createTransformersModel`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./transformers",
+      "name": "TransformersRerankerOptions",
+      "kind": "type",
+      "signature": "export type TransformersRerankerOptions = { /** Hugging Face model id. Default `'onnx-community/bge-reranker-v2-m3-ONNX'`. */ readonly id?: string; /** Commit, branch or tag. Default: the pinned commit for an id listed below, `'main'` for any other id. */ readonly revision?: string; /** ONNX weights to load. Default `'q8'` (570 MB for bge-reranker-v2-m3, 1.2 GB for Qwen3-Reranker-0.6B). */ readonly dtype?: DataType; /** `'cpu'` (Node, Bun), `'webgpu'` or `'wasm'` (browser). Default: Transformers.js picks. */ readonly device?: DeviceType; /** Where downloaded weights are kept. Default: Transformers.js' own cache. */ readonly cacheDir?: string; readonly onProgress?: ProgressCallback; /** * Tokens one pair may take, prompt and special tokens included. Default 1024: a pair costs time * with the square of its length, and longer documents can be split by `rerank()`. */ readonly maxInputTokens?: number; /** Qwen3-Reranker only: the task line. Default: its card's web-search instruction. */ readonly instruction?: string; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./transformers",
+      "name": "transformersRerankerOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const transformersRerankerOptionsSchema: SchemaWithJson<TransformersRerankerOptions, TransformersRerankerOptions>;",
+      "jsdocSummary": "`TransformersRerankerOptions`, checked by `createTransformersReranker`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./voyage",
+      "name": "createVoyageModel",
+      "kind": "function",
+      "signature": "export declare function createVoyageModel(input: VoyageModelOptions): EmbeddingModel | import(\"@arki/failure\").Failure<\"embeddings.configuration\", { message: string; }>;",
+      "jsdocSummary": "A Voyage model record. Voyage versions its models by name, so `assurance` is `immutable`."
+    },
+    {
+      "subpath": "./voyage",
+      "name": "createVoyageReranker",
+      "kind": "function",
+      "signature": "export declare function createVoyageReranker(input: VoyageRerankerOptions): Reranker | ConfigurationFailure;",
+      "jsdocSummary": "A Voyage reranker. `truncation` is sent as the caller chose, so a document over the limit is refused (`InputTooLong`) unless `rerank()` was told to truncate."
+    },
+    {
+      "subpath": "./voyage",
+      "name": "VoyageModelOptions",
+      "kind": "type",
+      "signature": "export type VoyageModelOptions = { /** Default `'voyage-3.5'`. */ readonly id?: string; readonly apiKey: string; /** Default `'https://api.voyageai.com/v1'`. */ readonly baseURL?: string; readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./voyage",
+      "name": "voyageModelOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const voyageModelOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`VoyageModelOptions`, checked by `createVoyageModel`; a type test locks it to the type."
+    },
+    {
+      "subpath": "./voyage",
+      "name": "VoyageRerankerOptions",
+      "kind": "type",
+      "signature": "export type VoyageRerankerOptions = { /** Default `'rerank-2.5'`. */ readonly id?: string; readonly apiKey: string; /** Default `'https://api.voyageai.com/v1'`. */ readonly baseURL?: string; readonly fetch?: FetchLike; };",
+      "jsdocSummary": ""
+    },
+    {
+      "subpath": "./voyage",
+      "name": "voyageRerankerOptionsSchema",
+      "kind": "variable",
+      "signature": "export declare const voyageRerankerOptionsSchema: import(\"@arki/schema\").SchemaWithJson<Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>, Readonly<{ id?: string | undefined; apiKey: string; baseURL?: string | undefined; fetch?: FetchLike | undefined; }>>;",
+      "jsdocSummary": "`VoyageRerankerOptions`, checked by `createVoyageReranker`; a type test locks it to the type."
+    }
+  ],
+  "groups": [],
+  "errorCodes": [
+    "embeddings.cancelled",
+    "embeddings.configuration",
+    "embeddings.input_too_long",
+    "embeddings.invalid_output",
+    "embeddings.model_unavailable",
+    "embeddings.rate_limited",
+    "embeddings.space_mismatch",
+    "embeddings.unsupported_input"
+  ]
+}

@@ -1,0 +1,187 @@
+{
+  "name": "@arki/embeddings",
+  "version": "0.1.0",
+  "description": "Text → vectors and rerank for ARKI: one Embedder shape over Ollama, OpenAI, Voyage, Google, Cohere, Mistral, Jina, Bedrock, OpenAI-compatible servers and in-process Transformers.js; failures as values; a fake embedder for tests.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arki-labs/arki.git"
+  },
+  "homepage": "https://arki.dev",
+  "bugs": {
+    "url": "https://github.com/arki-labs/arki/issues"
+  },
+  "keywords": [
+    "arki",
+    "typescript",
+    "embeddings",
+    "vectors",
+    "rerank",
+    "ollama",
+    "transformers"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./ollama": {
+      "types": "./dist/ollama/index.d.ts",
+      "import": "./dist/ollama/index.js",
+      "default": "./dist/ollama/index.js"
+    },
+    "./openai": {
+      "types": "./dist/openai/index.d.ts",
+      "import": "./dist/openai/index.js",
+      "default": "./dist/openai/index.js"
+    },
+    "./openai-compatible": {
+      "types": "./dist/openai-compatible/index.d.ts",
+      "import": "./dist/openai-compatible/index.js",
+      "default": "./dist/openai-compatible/index.js"
+    },
+    "./voyage": {
+      "types": "./dist/voyage/index.d.ts",
+      "import": "./dist/voyage/index.js",
+      "default": "./dist/voyage/index.js"
+    },
+    "./cohere": {
+      "types": "./dist/cohere/index.d.ts",
+      "import": "./dist/cohere/index.js",
+      "default": "./dist/cohere/index.js"
+    },
+    "./google": {
+      "types": "./dist/google/index.d.ts",
+      "import": "./dist/google/index.js",
+      "default": "./dist/google/index.js"
+    },
+    "./mistral": {
+      "types": "./dist/mistral/index.d.ts",
+      "import": "./dist/mistral/index.js",
+      "default": "./dist/mistral/index.js"
+    },
+    "./jina": {
+      "types": "./dist/jina/index.d.ts",
+      "import": "./dist/jina/index.js",
+      "default": "./dist/jina/index.js"
+    },
+    "./sparse": {
+      "types": "./dist/sparse/index.d.ts",
+      "import": "./dist/sparse/index.js",
+      "default": "./dist/sparse/index.js"
+    },
+    "./rerank": {
+      "types": "./dist/rerank/index.d.ts",
+      "import": "./dist/rerank/index.js",
+      "default": "./dist/rerank/index.js"
+    },
+    "./tei": {
+      "types": "./dist/tei/index.d.ts",
+      "import": "./dist/tei/index.js",
+      "default": "./dist/tei/index.js"
+    },
+    "./bedrock": {
+      "types": "./dist/bedrock/index.d.ts",
+      "import": "./dist/bedrock/index.js",
+      "default": "./dist/bedrock/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js",
+      "default": "./dist/testing/index.js"
+    },
+    "./kv": {
+      "types": "./dist/kv/index.d.ts",
+      "import": "./dist/kv/index.js",
+      "default": "./dist/kv/index.js"
+    },
+    "./dot": {
+      "types": "./dist/dot/index.d.ts",
+      "import": "./dist/dot/index.js",
+      "default": "./dist/dot/index.js"
+    },
+    "./transformers": {
+      "types": "./dist/transformers/index.d.ts",
+      "import": "./dist/transformers/index.js",
+      "default": "./dist/transformers/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/**",
+    "src/**",
+    "!src/**/*.test.*",
+    "!src/**/*.spec.*",
+    "!src/**/tests/**",
+    "!src/**/test/**",
+    "!src/**/__tests__/**",
+    "!src/**/__fixtures__/**",
+    "docs/**",
+    "llms.txt",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "dependencies": {
+    "@arki/clock": "0.2.0",
+    "@arki/failure": "0.3.0",
+    "@arki/log": "0.4.0",
+    "@arki/resilience": "0.3.2",
+    "@arki/schema": "0.3.0",
+    "zod": "4.6.5"
+  },
+  "peerDependencies": {
+    "@ai-sdk/amazon-bedrock": "^5.0.111",
+    "@ai-sdk/google": "^4.0.92",
+    "@ai-sdk/mistral": "^4.0.61",
+    "@ai-sdk/openai": "^4.0.89",
+    "@arki/dot": "^0.10.0",
+    "@arki/testing": "^0.3.0",
+    "@huggingface/transformers": "^4.3.1",
+    "ai": "^7.0.133"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/amazon-bedrock": {
+      "optional": true
+    },
+    "@ai-sdk/google": {
+      "optional": true
+    },
+    "@ai-sdk/mistral": {
+      "optional": true
+    },
+    "@ai-sdk/openai": {
+      "optional": true
+    },
+    "@arki/dot": {
+      "optional": true
+    },
+    "@arki/testing": {
+      "optional": true
+    },
+    "@huggingface/transformers": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "arki": {
+    "runtimes": [
+      "node",
+      "bun",
+      "deno",
+      "browser",
+      "hermes"
+    ]
+  }
+}

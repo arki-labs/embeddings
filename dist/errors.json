@@ -1,0 +1,74 @@
+[
+  {
+    "code": "embeddings.cancelled",
+    "package": "@arki/embeddings",
+    "kind": "failure",
+    "what": "The embedding call was cancelled.",
+    "fix": "Start a new request with an active AbortSignal if the embedding is still needed.",
+    "verify": "bun run test -- src/failures.test.ts src/embed.test.ts",
+    "source": "src/failures.ts:97"
+  },
+  {
+    "code": "embeddings.configuration",
+    "package": "@arki/embeddings",
+    "kind": "failure",
+    "what": "The embedding provider, model or connection is misconfigured.",
+    "fix": "Correct the configured provider, model and connection settings identified by the configuration failure.",
+    "verify": "bun run test -- src/failures.test.ts src/embed.test.ts",
+    "source": "src/failures.ts:108"
+  },
+  {
+    "code": "embeddings.input_too_long",
+    "package": "@arki/embeddings",
+    "kind": "failure",
+    "what": "An input exceeds the embedding model token limit.",
+    "fix": "Split the text into smaller chunks before embedding it.",
+    "verify": "bun run test -- src/failures.test.ts src/embed.test.ts",
+    "source": "src/failures.ts:29"
+  },
+  {
+    "code": "embeddings.invalid_output",
+    "package": "@arki/embeddings",
+    "kind": "failure",
+    "what": "The provider returned an unusable embedding.",
+    "fix": "Inspect the provider response and adapter validation; use a provider and model returning the required finite embedding vector shape.",
+    "verify": "bun run test -- src/failures.test.ts src/embed.test.ts",
+    "source": "src/failures.ts:73"
+  },
+  {
+    "code": "embeddings.model_unavailable",
+    "package": "@arki/embeddings",
+    "kind": "failure",
+    "what": "The embedding model or its provider is unavailable.",
+    "fix": "not-pulled: run `ollama pull <model>`; unreachable: start the server or fix the base URL; peer-missing: install the provider SDK peer.",
+    "verify": "bun run test -- src/failures.test.ts src/embed.test.ts",
+    "source": "src/failures.ts:41"
+  },
+  {
+    "code": "embeddings.rate_limited",
+    "package": "@arki/embeddings",
+    "kind": "failure",
+    "what": "The embedding provider is rate limiting this caller.",
+    "fix": "Wait retryAfterMs (when set) and try again, or wrap the embedder in withResilience.",
+    "verify": "bun run test -- src/failures.test.ts src/embed.test.ts",
+    "source": "src/failures.ts:17"
+  },
+  {
+    "code": "embeddings.space_mismatch",
+    "package": "@arki/embeddings",
+    "kind": "failure",
+    "what": "The configured model does not match the index embedding space.",
+    "fix": "Re-embed the corpus in the new space, or configure the model the index was built with.",
+    "verify": "bun run test -- src/failures.test.ts src/embed.test.ts",
+    "source": "src/failures.ts:85"
+  },
+  {
+    "code": "embeddings.unsupported_input",
+    "package": "@arki/embeddings",
+    "kind": "failure",
+    "what": "The embedding model does not support this input type.",
+    "fix": "Remove the unsupported input part or option, or select a model that supports it.",
+    "verify": "bun run test -- src/failures.test.ts src/embed.test.ts",
+    "source": "src/failures.ts:57"
+  }
+]

@@ -1,0 +1,239 @@
+import { z } from 'zod';
+import { isFailure } from '@arki/failure';
+import { getLogger } from '@arki/log';
+import { QUANTIZATIONS } from './types.js';
+import { Cancelled, InputTooLong, InvalidOutput, UnsupportedInput } from './failures.js';
+import { calibrationId, quantize } from './quantize.js';
+import { spaceOf } from './space.js';
+import { IMAGE_MIME_TYPES, imageMimeType } from './image.js';
+import { objectSchema, parseOptions, withOptionsJson } from './schemas.js';
+import { countTokens } from './tokens.js';
+/** `EmbedderOptions`, checked by `createEmbedder`; a type test locks it to the type. */
+export const embedderOptionsSchema = withOptionsJson(z
+    .object({
+    dimensions: z.number().int().positive().optional(),
+    quantization: z.enum(QUANTIZATIONS).exclude(['float32']).optional(),
+    calibration: z
+        .object({
+        min: z.custom(value => value instanceof Float32Array, 'expected a Float32Array'),
+        max: z.custom(value => value instanceof Float32Array, 'expected a Float32Array'),
+    })
+        .readonly()
+        .optional(),
+    log: objectSchema().optional(),
+})
+    .readonly());
+/** The size refusal shared by the factory and per-call options: only the native size or a listed truncation. */
+function checkDimensions(model, dimensions) {
+    if (dimensions === model.dimensions || model.matryoshka.includes(dimensions))
+        return;
+    return UnsupportedInput({ index: -1, part: 'dimensions' });
+}
+/**
+ * How one call gets its dtype: `native` is asked of the provider, `made` is made here from floats.
+ * A dtype neither can produce at this size is `UnsupportedInput`.
+ */
+function outputPlan(model, dimensions, quantization, calibration) {
+    if (quantization === undefined)
+        return {};
+    // An explicit calibration means int8 made here, so the space can name the range it used.
+    if (quantization === 'int8' && calibration !== undefined) {
+        if (calibration.min.length !== dimensions)
+            return UnsupportedInput({ index: -1, part: 'dimensions' });
+        return { made: 'int8' };
+    }
+    if (model.quantizations.includes(quantization))
+        return { native: quantization };
+    if (quantization === 'int8')
+        return UnsupportedInput({ index: -1, part: 'quantization' });
+    if (dimensions % 8 !== 0)
+        return UnsupportedInput({ index: -1, part: 'dimensions' });
+    return { made: 'binary' };
+}
+/**
+ * A model with fixed output options. Refuses sizes outside `model.matryoshka` and dtypes the
+ * provider cannot produce with `UnsupportedInput`, never a throw.
+ *
+ * @example
+ * const embedder = createEmbedder(model, { dimensions: 512 }); // an Embedder, UnsupportedInput or ConfigurationFailure
+ */
+export function createEmbedder(model, input = {}) {
+    const options = parseOptions(embedderOptionsSchema, input, 'embedder');
+    if (isFailure(options))
+        return options;
+    const dimensions = options.dimensions ?? model.dimensions;
+    const refused = checkDimensions(model, dimensions);
+    if (refused)
+        return refused;
+    const plan = outputPlan(model, dimensions, options.quantization, options.calibration);
+    if (isFailure(plan))
+        return plan;
+    return buildEmbedder(model, dimensions, options.quantization ?? 'float32', options.log ?? getLogger('arki:embeddings'), options.calibration);
+}
+/** `createEmbedder` after its checks. `./testing` uses it directly: the fake's options are always valid. */
+export function buildEmbedder(model, dimensions, quantization, log, calibration) {
+    // Hashed once. With a calibration every int8 is made here (`outputPlan`), so int8 names it.
+    const calibrationTag = calibration === undefined ? undefined : calibrationId(calibration);
+    const spaceAt = (size, dtype) => spaceOf(model, size, dtype, dtype === 'int8' ? calibrationTag : undefined);
+    log.debug('embedder created for {provider}:{model} at {dimensions} dims', {
+        provider: model.provider,
+        model: model.id,
+        dimensions,
+    });
+    const embed = async (inputs, options) => {
+        if (options.signal?.aborted)
+            return Cancelled();
+        const truncate = options.onTooLong === 'truncate';
+        const callDimensions = options.dimensions ?? dimensions;
+        const callQuantization = options.quantization ?? (quantization === 'float32' ? undefined : quantization);
+        const refused = checkDimensions(model, callDimensions);
+        if (refused)
+            return refused;
+        const plan = outputPlan(model, callDimensions, callQuantization, calibration);
+        if (isFailure(plan))
+            return plan;
+        if (inputs.length > model.maxBatch)
+            return UnsupportedInput({ index: model.maxBatch, part: 'batch' });
+        const prefix = options.purpose === undefined ? '' : (model.instruction[options.purpose] ?? '');
+        // Every input as the provider sees it; `texts` is the same list for a call without images.
+        const parts = [];
+        const texts = [];
+        for (const [index, input] of inputs.entries()) {
+            if (typeof input === 'string') {
+                parts.push({ text: prefix + input });
+                texts.push(prefix + input);
+                continue;
+            }
+            if (input.image === undefined) {
+                if (input.text === undefined)
+                    return UnsupportedInput({ index, part: 'text' });
+                parts.push({ text: prefix + input.text });
+                texts.push(prefix + input.text);
+                continue;
+            }
+            // Refused before any request: a text-only model would otherwise drop the image and embed the rest.
+            if (!model.inputs.includes('image') || model.embedInputs === undefined)
+                return UnsupportedInput({ index, part: 'image' });
+            const mimeType = input.mimeType ?? imageMimeType(input.image);
+            // A type the providers reject would come back as a 400 after the request; refuse it here instead.
+            if (mimeType === undefined || !IMAGE_MIME_TYPES.has(mimeType)) {
+                return UnsupportedInput({ index, part: 'image' });
+            }
+            // Prefixes are written for text; an image goes in as it is.
+            parts.push(input.text === undefined ? { image: input.image, mimeType } : { text: prefix + input.text, image: input.image, mimeType });
+            if (input.text !== undefined)
+                texts.push(prefix + input.text);
+        }
+        if (!truncate) {
+            // The prefix is sent too, so it counts against the model's limit.
+            for (const [index, part] of parts.entries()) {
+                if (part.text === undefined)
+                    continue;
+                const tokens = countTokens(model, part.text);
+                if (tokens.basis !== 'unknown' && tokens.count > model.maxInputTokens) {
+                    return InputTooLong({ index, tokens, max: model.maxInputTokens });
+                }
+            }
+        }
+        const request = {
+            ...(options.purpose === undefined ? {} : { purpose: options.purpose }),
+            ...(callDimensions === model.dimensions ? {} : { dimensions: callDimensions }),
+            ...(plan.native === undefined ? {} : { quantization: plan.native }),
+            ...(truncate ? { truncate } : {}),
+            ...(options.signal === undefined ? {} : { signal: options.signal }),
+        };
+        // Set only when an image is present; a model without it was refused above.
+        const embedInputs = parts.some(part => part.image !== undefined) ? model.embedInputs : undefined;
+        const native = embedInputs === undefined ? await model.embedTexts({ ...request, texts }) : await embedInputs({ ...request, inputs: parts });
+        if (isFailure(native)) {
+            log.debug('{provider}:{model} refused {count} inputs: {code}', {
+                provider: model.provider,
+                model: model.id,
+                count: inputs.length,
+                code: native.code,
+            });
+            return native;
+        }
+        // Read after the call: a lazily learned revision (Ollama's digest) is part of the space.
+        const space = spaceAt(callDimensions, callQuantization ?? 'float32');
+        // A dtype made here is made from floats, and the floats are what the provider is held to.
+        const answered = validate(native, inputs.length, plan.made === undefined ? space : { ...space, quantization: 'float32' });
+        if (isFailure(answered))
+            return answered;
+        const vectors = plan.made === undefined ? answered : made(answered, plan.made, calibration);
+        if (isFailure(vectors))
+            return vectors;
+        const usage = {
+            tokens: native.tokens,
+            requests: 1,
+            cacheHits: 0,
+            ...(native.loadMs === undefined ? {} : { loadMs: native.loadMs }),
+        };
+        return { vectors, space, usage };
+    };
+    return {
+        model,
+        get space() {
+            return spaceAt(dimensions, quantization);
+        },
+        spaceFor: options => spaceAt(options.dimensions ?? dimensions, options.quantization ?? quantization),
+        embed,
+    };
+}
+/** Values per vector: one per dimension, or one bit per dimension for packed binary. */
+function expectedLength(space) {
+    return space.quantization === 'binary' ? Math.ceil(space.dimensions / 8) : space.dimensions;
+}
+/**
+ * Checks every vector the provider answered and converts it to the space's typed array. Any miss
+ * discards the whole batch: count, length, a non-number or non-finite value, or a zero vector
+ * (which would match everything at cosine 0 and poison an index).
+ */
+function validate(native, count, space) {
+    if (native.vectors.length !== count)
+        return InvalidOutput({ reason: `count: expected ${count} vectors, got ${native.vectors.length}` });
+    const length = expectedLength(space);
+    const vectors = [];
+    for (const [index, raw] of native.vectors.entries()) {
+        if (raw.length !== length)
+            return InvalidOutput({ reason: `dimensions: expected ${length}, got ${raw.length} at index ${index}` });
+        const vector = space.quantization === 'int8'
+            ? new Int8Array(length)
+            : space.quantization === 'binary'
+                ? new Uint8Array(length)
+                : new Float32Array(length);
+        let squares = 0;
+        for (let position = 0; position < length; position++) {
+            const value = raw[position];
+            if (typeof value !== 'number')
+                return InvalidOutput({ reason: `non-number at index ${index}` });
+            vector[position] = value;
+            const stored = vector[position] ?? Number.NaN;
+            if (!Number.isFinite(stored))
+                return InvalidOutput({ reason: `non-finite value at index ${index}` });
+            squares += stored * stored;
+        }
+        if (squares === 0)
+            return InvalidOutput({ reason: `zero-norm at index ${index}` });
+        vectors.push(vector);
+    }
+    return vectors;
+}
+/** Validated floats converted to the dtype made here. `outputPlan` already checked the sizes. */
+function made(vectors, to, calibration) {
+    const out = [];
+    for (const vector of vectors) {
+        if (!(vector instanceof Float32Array))
+            return InvalidOutput({ reason: 'expected float vectors to quantize' });
+        const converted = to === 'int8'
+            ? calibration === undefined
+                ? UnsupportedInput({ index: -1, part: 'quantization' })
+                : quantize(vector, 'int8', calibration)
+            : quantize(vector, 'binary');
+        if (isFailure(converted))
+            return converted;
+        out.push(converted);
+    }
+    return out;
+}
+//# sourceMappingURL=embedder.js.map
